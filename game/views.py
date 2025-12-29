@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.db.models import F
+from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 import json
@@ -268,64 +269,75 @@ def make_choice(request):
         player_id = data.get('player_id')
         choice = data.get('choice', '').lower()
         
-        game = OnlineGame.objects.filter(game_id=game_id).first()
-        if not game:
-            return JsonResponse({'error': 'Game not found'}, status=404)
-        
-        if game.status not in ['playing', 'round_complete']:
-            return JsonResponse({'error': 'Game is not active'}, status=400)
-        
-        # Validate choice
-        available_elements = get_elements_for_mode(game.mode)
-        if choice not in available_elements:
-            return JsonResponse({'error': 'Invalid choice'}, status=400)
-        
-        # Determine which player and update their choice
-        is_player1 = game.player1_id == player_id
-        
-        if is_player1:
-            game.player1_choice = choice
-        else:
-            game.player2_choice = choice
-        
-        # Check if both players have chosen
-        if game.player1_choice and game.player2_choice:
-            # Determine winner of this round
-            result = determine_winner(game.player1_choice, game.player2_choice)
+        # Use atomic transaction with select_for_update to prevent race conditions
+        with transaction.atomic():
+            game = OnlineGame.objects.select_for_update().filter(game_id=game_id).first()
+            if not game:
+                return JsonResponse({'error': 'Game not found'}, status=404)
             
-            if result == 'win':
-                game.player1_score += 1
-                round_winner = game.player1_name
-                reason = get_win_reason(game.player1_choice, game.player2_choice)
-            elif result == 'lose':
-                game.player2_score += 1
-                round_winner = game.player2_name
-                reason = get_win_reason(game.player2_choice, game.player1_choice)
+            if game.status not in ['playing', 'round_complete']:
+                return JsonResponse({'error': 'Game is not active'}, status=400)
+            
+            # Validate choice
+            available_elements = get_elements_for_mode(game.mode)
+            if choice not in available_elements:
+                return JsonResponse({'error': 'Invalid choice'}, status=400)
+            
+            # Determine which player and update their choice
+            is_player1 = game.player1_id == player_id
+            
+            if is_player1:
+                if game.player1_choice:  # Already chose
+                    return JsonResponse({'status': 'success', 'choice_made': True, 'waiting_for_opponent': not game.player2_choice})
+                game.player1_choice = choice
             else:
-                round_winner = None
-                reason = "It's a draw!"
+                if game.player2_choice:  # Already chose
+                    return JsonResponse({'status': 'success', 'choice_made': True, 'waiting_for_opponent': not game.player1_choice})
+                game.player2_choice = choice
             
-            # Store round result
-            game.round_result = json.dumps({
-                'player1_choice': game.player1_choice,
-                'player1_emoji': ELEMENTS[game.player1_choice]['emoji'],
-                'player2_choice': game.player2_choice,
-                'player2_emoji': ELEMENTS[game.player2_choice]['emoji'],
-                'round_winner': round_winner,
-                'reason': reason,
-            })
+            game.save()
             
-            # Check if game is over (first to 3)
-            if game.player1_score >= 3:
-                game.status = 'finished'
-                game.winner = game.player1_name
-            elif game.player2_score >= 3:
-                game.status = 'finished'
-                game.winner = game.player2_name
-            else:
-                game.status = 'round_complete'
-        
-        game.save()
+            # Re-fetch to get latest state after our save
+            game.refresh_from_db()
+            
+            # Check if both players have chosen
+            if game.player1_choice and game.player2_choice and game.status == 'playing':
+                # Determine winner of this round
+                result = determine_winner(game.player1_choice, game.player2_choice)
+                
+                if result == 'win':
+                    game.player1_score += 1
+                    round_winner = game.player1_name
+                    reason = get_win_reason(game.player1_choice, game.player2_choice)
+                elif result == 'lose':
+                    game.player2_score += 1
+                    round_winner = game.player2_name
+                    reason = get_win_reason(game.player2_choice, game.player1_choice)
+                else:
+                    round_winner = None
+                    reason = "It's a draw!"
+                
+                # Store round result
+                game.round_result = json.dumps({
+                    'player1_choice': game.player1_choice,
+                    'player1_emoji': ELEMENTS[game.player1_choice]['emoji'],
+                    'player2_choice': game.player2_choice,
+                    'player2_emoji': ELEMENTS[game.player2_choice]['emoji'],
+                    'round_winner': round_winner,
+                    'reason': reason,
+                })
+                
+                # Check if game is over (first to 3)
+                if game.player1_score >= 3:
+                    game.status = 'finished'
+                    game.winner = game.player1_name
+                elif game.player2_score >= 3:
+                    game.status = 'finished'
+                    game.winner = game.player2_name
+                else:
+                    game.status = 'round_complete'
+                
+                game.save()
         
         return JsonResponse({
             'status': 'success',
@@ -348,30 +360,33 @@ def next_round(request):
         game_id = data.get('game_id')
         player_id = data.get('player_id')
         
-        game = OnlineGame.objects.filter(game_id=game_id).first()
-        if not game:
-            return JsonResponse({'error': 'Game not found'}, status=404)
-        
-        # Mark this player as ready for next round
-        is_player1 = game.player1_id == player_id
-        
-        if is_player1:
-            game.player1_ready = True
-        else:
-            game.player2_ready = True
-        
-        # If both players are ready, start next round
-        if game.player1_ready and game.player2_ready:
-            game.current_round += 1
-            game.player1_choice = None
-            game.player2_choice = None
-            game.player1_ready = False
-            game.player2_ready = False
-            game.round_result = None
-            game.status = 'playing'
-            game.round_start_time = timezone.now()  # Reset timer for new round
-        
-        game.save()
+        with transaction.atomic():
+            game = OnlineGame.objects.select_for_update().filter(game_id=game_id).first()
+            if not game:
+                return JsonResponse({'error': 'Game not found'}, status=404)
+            
+            # Mark this player as ready for next round
+            is_player1 = game.player1_id == player_id
+            
+            if is_player1:
+                game.player1_ready = True
+            else:
+                game.player2_ready = True
+            
+            game.save()
+            game.refresh_from_db()
+            
+            # If both players are ready, start next round
+            if game.player1_ready and game.player2_ready:
+                game.current_round += 1
+                game.player1_choice = None
+                game.player2_choice = None
+                game.player1_ready = False
+                game.player2_ready = False
+                game.round_result = None
+                game.status = 'playing'
+                game.round_start_time = timezone.now()  # Reset timer for new round
+                game.save()
         
         return JsonResponse({
             'status': 'success',
