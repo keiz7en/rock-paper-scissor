@@ -216,6 +216,7 @@
     let currentRoundStartTime = null;
     let timerRunning = false;
     let searchStartTime = null;
+    let lastKnownRound = 0; // Track round number to detect transitions
 
     // DOM Elements
     const matchmakingScreen = document.getElementById('matchmaking-screen');
@@ -471,11 +472,24 @@
         document.getElementById('p1-score').textContent = state.your_score;
         document.getElementById('p2-score').textContent = state.opponent_score;
         document.getElementById('round-number').textContent = state.current_round;
+        
+        // IMPORTANT: Detect round change and force reset
+        if (state.current_round !== lastKnownRound) {
+            console.log(`Round changed from ${lastKnownRound} to ${state.current_round}`);
+            lastKnownRound = state.current_round;
+            // Force reset all client-side state for new round
+            hasChosen = false;
+            resultShown = false;
+            waitingForNextRound = false;
+            timerRunning = false;
+            resetRoundUI();
+        }
 
-        // Update status indicators
+        // Update status indicators based on SERVER state (not client hasChosen)
         if (state.you_chose) {
             document.getElementById('p1-status').textContent = 'Ready! ✓';
             document.getElementById('p1-choice').innerHTML = '<span class="choice-emoji">✓</span>';
+            hasChosen = true; // Sync client state with server
         }
         if (state.opponent_chose) {
             document.getElementById('p2-status').textContent = 'Ready! ✓';
@@ -484,14 +498,6 @@
 
         // Handle different game states
         if (state.status === 'playing') {
-            // Reset flags when game transitions back to playing
-            if (resultShown || waitingForNextRound) {
-                resultShown = false;
-                waitingForNextRound = false;
-                hasChosen = false;
-                resetRoundUI();
-            }
-            
             // Start countdown timer if not already running
             if (state.round_start_time && !timerRunning && !hasChosen) {
                 currentRoundStartTime = new Date(state.round_start_time);
@@ -760,6 +766,7 @@
         currentRoundStartTime = null;
         isPlayer1 = false;
         searchStartTime = null;
+        lastKnownRound = 0; // Reset round tracking
         
         // Reset UI elements
         gameOverScreen.style.display = 'none';
