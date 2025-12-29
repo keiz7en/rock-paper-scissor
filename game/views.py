@@ -22,6 +22,30 @@ from .models import Player, GameSession, MatchmakingQueue, OnlineGame
 ai_instances = {}
 
 
+def update_player_stats_for_pvp(player_name, result):
+    """Update or create player stats for PvP games"""
+    if not player_name or player_name.strip() == '':
+        return
+    
+    player, created = Player.objects.get_or_create(name=player_name)
+    
+    player.total_games += 1
+    
+    if result == 'win':
+        player.total_wins += 1
+        player.current_streak += 1
+        if player.current_streak > player.best_streak:
+            player.best_streak = player.current_streak
+    elif result == 'lose':
+        player.total_losses += 1
+        player.current_streak = 0
+    else:
+        player.total_draws += 1
+    
+    player.calculate_score()
+    player.save()
+
+
 def home(request):
     """Render the home page"""
     # Get top 5 players for display
@@ -331,9 +355,15 @@ def make_choice(request):
                 if game.player1_score >= 3:
                     game.status = 'finished'
                     game.winner = game.player1_name
+                    # Update player stats
+                    update_player_stats_for_pvp(game.player1_name, 'win')
+                    update_player_stats_for_pvp(game.player2_name, 'lose')
                 elif game.player2_score >= 3:
                     game.status = 'finished'
                     game.winner = game.player2_name
+                    # Update player stats
+                    update_player_stats_for_pvp(game.player2_name, 'win')
+                    update_player_stats_for_pvp(game.player1_name, 'lose')
                 else:
                     game.status = 'round_complete'
                 
@@ -429,6 +459,10 @@ def forfeit_game(request):
         game.winner = winner_name
         game.forfeit_by = forfeit_name
         game.save()
+        
+        # Update player stats for forfeit
+        update_player_stats_for_pvp(winner_name, 'win')
+        update_player_stats_for_pvp(forfeit_name, 'lose')
         
         return JsonResponse({
             'status': 'success',

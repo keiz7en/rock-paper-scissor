@@ -193,7 +193,8 @@
     const playerId = '{{ player_id }}';
     const playerName = '{{ player_name }}';
     const allElements = {{ elements_json|safe }};
-    const ROUND_TIME_LIMIT = 10; // 10 seconds per round
+    const ROUND_TIME_LIMIT = 15; // 15 seconds per round
+    const NEXT_ROUND_AUTO_ADVANCE = 10; // 10 seconds to click next round button
     const AI_FALLBACK_TIME = 90; // 90 seconds (1:30) before AI fallback
     
     // Mode-specific elements
@@ -217,6 +218,7 @@
     let timerRunning = false;
     let searchStartTime = null;
     let lastKnownRound = 0; // Track round number to detect transitions
+    let nextRoundTimeout = null; // Auto-advance timeout for next round
 
     // DOM Elements
     const matchmakingScreen = document.getElementById('matchmaking-screen');
@@ -620,6 +622,12 @@
     }
     
     function resetRoundUI() {
+        // Clear auto-advance timeout
+        if (nextRoundTimeout) {
+            clearTimeout(nextRoundTimeout);
+            nextRoundTimeout = null;
+        }
+        
         document.getElementById('next-round-btn').style.display = 'none';
         document.getElementById('next-round-btn').disabled = false;
         const btnText = document.querySelector('#next-round-btn .btn-text');
@@ -671,7 +679,14 @@
         elementsGrid.classList.add('disabled');
         
         document.getElementById('phase-text').textContent = 'Round Complete';
-        document.getElementById('phase-hint').textContent = 'Click "Next Round" when ready';
+        document.getElementById('phase-hint').textContent = `Click "Next Round" (auto in ${NEXT_ROUND_AUTO_ADVANCE}s)`;
+        
+        // Auto-advance to next round after 10 seconds
+        nextRoundTimeout = setTimeout(() => {
+            if (!waitingForNextRound) {
+                readyForNextRound();
+            }
+        }, NEXT_ROUND_AUTO_ADVANCE * 1000);
     }
 
     function showGameOver(state) {
@@ -723,6 +738,12 @@
     async function readyForNextRound() {
         if (waitingForNextRound) return; // Prevent double-clicks
         waitingForNextRound = true;
+        
+        // Clear auto-advance timeout
+        if (nextRoundTimeout) {
+            clearTimeout(nextRoundTimeout);
+            nextRoundTimeout = null;
+        }
         
         const btnText = document.querySelector('#next-round-btn .btn-text');
         if (btnText) btnText.textContent = 'Waiting...';
