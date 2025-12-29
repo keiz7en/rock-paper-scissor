@@ -1,0 +1,366 @@
+{% extends 'game/base.html' %}
+{% load static %}
+
+{% block title %}RPS Ultimate - Play{% endblock %}
+
+{% block content %}
+<div class="game-page-layout">
+    <div class="game-container">
+        <header class="game-header">
+            <a href="{% url 'game:home' %}" class="back-btn">← Back</a>
+            <h1>Rock Paper Scissors</h1>
+            <div class="game-info">
+                {% if player_name %}
+                <span class="player-badge">👤 {{ player_name }}</span>
+                {% endif %}
+                <span class="mode-badge">{{ mode|title }}</span>
+                <span class="difficulty-badge {{ difficulty }}">{{ difficulty|title }}</span>
+            </div>
+        </header>
+
+        <!-- Player Rank Card (if logged in) -->
+        {% if player_name %}
+        <div class="player-rank-card" id="player-rank-card">
+            <div class="rank-card-header">
+                <span class="rank-icon">🏆</span>
+                <span class="rank-title">Your Rank</span>
+            </div>
+            <div class="rank-card-body">
+                <div class="rank-position">
+                    <span class="rank-number" id="current-rank">-</span>
+                </div>
+                <div class="rank-stats">
+                    <div class="rank-stat">
+                        <span class="rank-stat-label">Score</span>
+                        <span class="rank-stat-value" id="player-total-score">0</span>
+                    </div>
+                    <div class="rank-stat">
+                        <span class="rank-stat-label">Streak</span>
+                        <span class="rank-stat-value" id="current-streak">0 🔥</span>
+                    </div>
+                    <div class="rank-stat">
+                        <span class="rank-stat-label">Best</span>
+                        <span class="rank-stat-value" id="best-streak">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="scoreboard">
+            <div class="score-item player-score">
+                <span class="score-label">You</span>
+                <span class="score-value" id="player-score">0</span>
+            </div>
+            <div class="score-item vs">
+                <span>VS</span>
+            </div>
+            <div class="score-item ai-score">
+                <span class="score-label" id="opponent-name">{% if ai_name %}{{ ai_name }}{% else %}AI{% endif %}</span>
+                <span class="score-value" id="ai-score">0</span>
+            </div>
+        </div>
+
+        <div class="battle-arena">
+            <div class="player-side">
+                <h3>Your Choice</h3>
+                <div class="choice-display" id="player-choice">
+                    <span class="choice-emoji">❓</span>
+                </div>
+            </div>
+            
+            <div class="vs-divider">
+                <span class="vs-text">VS</span>
+            </div>
+            
+            <div class="ai-side">
+                <h3 id="opponent-title">{% if ai_name %}{{ ai_name }}'s Choice{% else %}AI Choice{% endif %}</h3>
+                <div class="choice-display" id="ai-choice">
+                    <span class="choice-emoji">{% if ai_name %}👤{% else %}🤖{% endif %}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-display" id="result-display">
+            <p class="result-text">Choose your weapon!</p>
+            <p class="result-reason" id="result-reason"></p>
+        </div>
+
+        <div class="elements-grid">
+            {% for key, element in elements.items %}
+            <button class="element-btn" data-element="{{ key }}" title="{{ element.description }}">
+                <span class="element-emoji">{{ element.emoji }}</span>
+                <span class="element-name">{{ key|title }}</span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <div class="game-controls">
+            <button id="reset-btn" class="btn btn-secondary">
+                <span class="btn-icon">🔄</span>
+                Reset Session
+            </button>
+            <a href="{% url 'game:leaderboard' %}" class="btn btn-secondary">
+                <span class="btn-icon">🏆</span>
+                Leaderboard
+            </a>
+        </div>
+
+        <div class="stats-panel">
+            <h4>Session Statistics</h4>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">Rounds</span>
+                    <span class="stat-value" id="total-rounds">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Wins</span>
+                    <span class="stat-value" id="total-wins">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Losses</span>
+                    <span class="stat-value" id="total-losses">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Draws</span>
+                    <span class="stat-value" id="total-draws">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Win Rate</span>
+                    <span class="stat-value" id="win-rate">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Side Leaderboard -->
+    {% if top_players %}
+    <div class="side-leaderboard">
+        <h3>🏆 Top 10 Players</h3>
+        <div class="side-leaderboard-list">
+            {% for player in top_players %}
+            <div class="side-leaderboard-item {% if player.name == player_name %}current-player{% endif %}">
+                <span class="side-rank">
+                    {% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}#{{ forloop.counter }}{% endif %}
+                </span>
+                <span class="side-name">{{ player.name }}</span>
+                <span class="side-score">{{ player.score }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="{% url 'game:leaderboard' %}" class="view-full-btn">View Full Rankings →</a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    const mode = '{{ mode }}';
+    const difficulty = '{{ difficulty }}';
+    const playerName = '{{ player_name|escapejs }}';
+    const aiName = '{{ ai_name|escapejs }}' || 'AI';
+    const autoMatch = '{{ auto_match }}';
+    const sessionId = 'session_' + Date.now();
+    
+    let playerScore = 0;
+    let aiScore = 0;
+    let totalRounds = 0;
+    let wins = 0;
+    let losses = 0;
+    let draws = 0;
+    let isPlaying = false;
+
+    const elements = {{ elements_json|safe }};
+
+    // Element buttons
+    document.querySelectorAll('.element-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (isPlaying) return;
+            const element = btn.dataset.element;
+            playRound(element);
+        });
+    });
+
+    async function playRound(playerChoice) {
+        isPlaying = true;
+        
+        // Disable buttons
+        document.querySelectorAll('.element-btn').forEach(btn => {
+            btn.classList.add('disabled');
+        });
+
+        // Update player display
+        const playerDisplay = document.getElementById('player-choice');
+        playerDisplay.innerHTML = `<span class="choice-emoji">${elements[playerChoice].emoji}</span>`;
+        playerDisplay.classList.add('selected');
+
+        // Opponent thinking animation
+        const aiDisplay = document.getElementById('ai-choice');
+        aiDisplay.innerHTML = `<span class="choice-emoji thinking">🤔</span>`;
+        
+        const resultDisplay = document.getElementById('result-display');
+        resultDisplay.querySelector('.result-text').textContent = `${aiName} is thinking...`;
+        resultDisplay.querySelector('.result-text').className = 'result-text';
+        document.getElementById('result-reason').textContent = '';
+
+        try {
+            const response = await fetch('/api/play/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    choice: playerChoice,
+                    difficulty: difficulty,
+                    mode: mode,
+                    session_id: sessionId,
+                    player_name: playerName
+                })
+            });
+
+            const data = await response.json();
+
+            // Small delay for dramatic effect
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Update AI display
+            aiDisplay.innerHTML = `<span class="choice-emoji">${data.ai_emoji}</span>`;
+            aiDisplay.classList.add('selected');
+
+            // Update result
+            totalRounds++;
+            
+            if (data.result === 'win') {
+                playerScore++;
+                wins++;
+                resultDisplay.querySelector('.result-text').textContent = '🎉 You Win!';
+                resultDisplay.querySelector('.result-text').className = 'result-text win';
+                playerDisplay.classList.add('winner');
+                aiDisplay.classList.remove('winner');
+            } else if (data.result === 'lose') {
+                aiScore++;
+                losses++;
+                resultDisplay.querySelector('.result-text').textContent = '😢 You Lose!';
+                resultDisplay.querySelector('.result-text').className = 'result-text lose';
+                aiDisplay.classList.add('winner');
+                playerDisplay.classList.remove('winner');
+            } else {
+                draws++;
+                resultDisplay.querySelector('.result-text').textContent = '🤝 Draw!';
+                resultDisplay.querySelector('.result-text').className = 'result-text draw';
+                playerDisplay.classList.remove('winner');
+                aiDisplay.classList.remove('winner');
+            }
+
+            document.getElementById('result-reason').textContent = data.reason;
+
+            // Update scores
+            document.getElementById('player-score').textContent = playerScore;
+            document.getElementById('ai-score').textContent = aiScore;
+
+            // Update stats
+            updateStats();
+
+            // Update player rank card if logged in
+            if (data.player_data) {
+                updatePlayerRankCard(data.player_data);
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            resultDisplay.querySelector('.result-text').textContent = 'Error occurred!';
+        }
+
+        // Re-enable buttons
+        setTimeout(() => {
+            document.querySelectorAll('.element-btn').forEach(btn => {
+                btn.classList.remove('disabled');
+            });
+            isPlaying = false;
+        }, 300);
+    }
+
+    function updateStats() {
+        document.getElementById('total-rounds').textContent = totalRounds;
+        document.getElementById('total-wins').textContent = wins;
+        document.getElementById('total-losses').textContent = losses;
+        document.getElementById('total-draws').textContent = draws;
+        
+        const winRate = totalRounds > 0 ? Math.round((wins / totalRounds) * 100) : 0;
+        document.getElementById('win-rate').textContent = winRate + '%';
+    }
+
+    function updatePlayerRankCard(playerData) {
+        const rankCard = document.getElementById('player-rank-card');
+        if (rankCard && playerData) {
+            document.getElementById('current-rank').textContent = '#' + playerData.rank;
+            document.getElementById('player-total-score').textContent = playerData.score;
+            document.getElementById('current-streak').textContent = playerData.current_streak + ' 🔥';
+            document.getElementById('best-streak').textContent = playerData.best_streak;
+            
+            // Add animation
+            rankCard.classList.add('updated');
+            setTimeout(() => rankCard.classList.remove('updated'), 500);
+        }
+    }
+
+    // Reset button
+    document.getElementById('reset-btn').addEventListener('click', async () => {
+        playerScore = 0;
+        aiScore = 0;
+        totalRounds = 0;
+        wins = 0;
+        losses = 0;
+        draws = 0;
+
+        document.getElementById('player-score').textContent = '0';
+        document.getElementById('ai-score').textContent = '0';
+        document.getElementById('player-choice').innerHTML = '<span class="choice-emoji">❓</span>';
+        document.getElementById('ai-choice').innerHTML = '<span class="choice-emoji">🤖</span>';
+        
+        const resultDisplay = document.getElementById('result-display');
+        resultDisplay.querySelector('.result-text').textContent = 'Choose your weapon!';
+        resultDisplay.querySelector('.result-text').className = 'result-text';
+        document.getElementById('result-reason').textContent = '';
+
+        updateStats();
+
+        // Reset AI history
+        try {
+            await fetch('/api/reset/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    difficulty: difficulty
+                })
+            });
+        } catch (error) {
+            console.error('Reset error:', error);
+        }
+    });
+
+    // Keyboard shortcuts
+    const keyMap = {
+        'r': 'rock',
+        'p': 'paper',
+        's': 'scissors',
+        'f': 'fire',
+        'w': 'water',
+        'a': 'air',
+        'l': 'lizard',
+        'g': 'gun',
+        'e': 'lightning',
+        'd': 'shield'
+    };
+
+    document.addEventListener('keydown', (e) => {
+        if (isPlaying) return;
+        const element = keyMap[e.key.toLowerCase()];
+        if (element && elements[element]) {
+            playRound(element);
+        }
+    });
+</script>
+{% endblock %}

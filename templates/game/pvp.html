@@ -1,0 +1,752 @@
+{% extends 'game/base.html' %}
+{% load static %}
+
+{% block title %}RPS Ultimate - Online Match{% endblock %}
+
+{% block content %}
+<div class="pvp-game-container">
+    <header class="game-header">
+        <a href="{% url 'game:home' %}" class="back-btn" id="back-btn">← Back</a>
+        <h1>🌐 Online Battle</h1>
+        <div class="game-info">
+            <span class="mode-badge">{{ mode|title }}</span>
+            <span class="pvp-badge">🔍 Matchmaking</span>
+        </div>
+    </header>
+
+    <!-- Matchmaking Screen -->
+    <div class="matchmaking-screen" id="matchmaking-screen">
+        <div class="matchmaking-container">
+            <div class="matchmaking-animation">
+                <div class="search-ring"></div>
+                <div class="search-ring delay-1"></div>
+                <div class="search-ring delay-2"></div>
+                <div class="player-avatar">
+                    <span class="avatar-emoji">🎮</span>
+                </div>
+            </div>
+            <h2 class="matchmaking-title">Finding Opponent...</h2>
+            <p class="matchmaking-status" id="matchmaking-status">Searching for players...</p>
+            <div class="matchmaking-timer" id="matchmaking-timer">
+                <span class="timer-icon">⏱️</span>
+                <span class="timer-value" id="search-timer">0:00</span>
+            </div>
+            <div class="matchmaking-info">
+                <span class="player-label">Playing as:</span>
+                <span class="player-name-display">{{ player_name }}</span>
+            </div>
+            <div class="matchmaking-mode-info">
+                <span class="mode-label">🎲 Mode:</span>
+                <span class="mode-value">{{ mode|title }}</span>
+                <span class="random-badge">Random</span>
+            </div>
+            <div class="online-count" id="online-count">
+                <span class="online-dot"></span>
+                <span id="players-online">0</span> players searching
+            </div>
+            <button class="btn btn-secondary cancel-btn" id="cancel-search">
+                <span class="btn-icon">✖️</span>
+                Cancel Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Match Found Animation -->
+    <div class="match-found-screen" id="match-found-screen" style="display: none;">
+        <div class="match-found-container">
+            <h2 class="match-found-title">⚔️ MATCH FOUND!</h2>
+            <div class="versus-display">
+                <div class="versus-player">
+                    <div class="versus-avatar you">🎮</div>
+                    <span class="versus-name" id="your-name-display">{{ player_name }}</span>
+                    <span class="you-label">YOU</span>
+                </div>
+                <div class="versus-vs">VS</div>
+                <div class="versus-player">
+                    <div class="versus-avatar opponent">👤</div>
+                    <span class="versus-name" id="opponent-name-display">Opponent</span>
+                </div>
+            </div>
+            <p class="starting-text">Match starting...</p>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div class="game-screen" id="game-screen" style="display: none;">
+        <div class="pvp-scoreboard">
+            <div class="pvp-player-score p1-score you-score">
+                <span class="pvp-player-name" id="p1-name">You</span>
+                <span class="pvp-score-value" id="p1-score">0</span>
+                <span class="first-to">First to 3</span>
+            </div>
+            <div class="pvp-vs-center">
+                <span class="round-indicator">Round <span id="round-number">1</span></span>
+            </div>
+            <div class="pvp-player-score p2-score">
+                <span class="pvp-player-name" id="p2-name">Opponent</span>
+                <span class="pvp-score-value" id="p2-score">0</span>
+            </div>
+        </div>
+
+        <!-- Game Phase Indicator -->
+        <div class="phase-indicator" id="phase-indicator">
+            <div class="phase-text" id="phase-text">Choose your weapon!</div>
+            <div class="phase-hint" id="phase-hint"></div>
+        </div>
+
+        <!-- Countdown Timer -->
+        <div class="countdown-timer" id="countdown-timer">
+            <div class="timer-circle">
+                <svg class="timer-svg" viewBox="0 0 100 100">
+                    <circle class="timer-bg" cx="50" cy="50" r="45"></circle>
+                    <circle class="timer-progress" id="timer-progress" cx="50" cy="50" r="45"></circle>
+                </svg>
+                <span class="timer-text" id="timer-text">10</span>
+            </div>
+            <span class="timer-label">seconds left</span>
+        </div>
+
+        <!-- Battle Arena -->
+        <div class="pvp-battle-arena">
+            <div class="pvp-player-side p1-side">
+                <h3 id="arena-p1-name">You</h3>
+                <div class="pvp-choice-display" id="p1-choice">
+                    <span class="choice-emoji">❓</span>
+                </div>
+                <div class="choice-status" id="p1-status">Select your move</div>
+            </div>
+            
+            <div class="pvp-vs-divider">
+                <span class="vs-text">⚔️</span>
+            </div>
+            
+            <div class="pvp-player-side p2-side">
+                <h3 id="arena-p2-name">Opponent</h3>
+                <div class="pvp-choice-display" id="p2-choice">
+                    <span class="choice-emoji">❓</span>
+                </div>
+                <div class="choice-status" id="p2-status">Waiting...</div>
+            </div>
+        </div>
+
+        <!-- Result Display -->
+        <div class="result-display pvp-result" id="result-display" style="display: none;">
+            <p class="result-text" id="result-text"></p>
+            <p class="result-reason" id="result-reason"></p>
+        </div>
+
+        <!-- Elements Grid -->
+        <div class="elements-grid pvp-elements" id="elements-grid">
+            {% for key, element in elements.items %}
+            <button class="element-btn" data-element="{{ key }}" title="{{ element.description }}">
+                <span class="element-emoji">{{ element.emoji }}</span>
+                <span class="element-name">{{ key|title }}</span>
+            </button>
+            {% endfor %}
+        </div>
+
+        <!-- Game Controls -->
+        <div class="game-controls">
+            <button id="next-round-btn" class="btn btn-primary" style="display: none;">
+                <span class="btn-icon">▶️</span>
+                <span class="btn-text">Next Round</span>
+            </button>
+            <button id="play-again-btn" class="btn btn-primary" style="display: none;" onclick="resetAndFindNewMatch()">
+                <span class="btn-icon">🔄</span>
+                Find New Match
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div class="game-over-screen" id="game-over-screen" style="display: none;">
+        <div class="game-over-container">
+            <h2 class="game-over-title" id="game-over-title">🏆 VICTORY!</h2>
+            <p class="forfeit-message" id="forfeit-message" style="display: none;"></p>
+            <div class="final-score" id="final-score-section">
+                <span id="final-p1-name">You</span>
+                <span class="score-display">
+                    <span id="final-p1-score">3</span> - <span id="final-p2-score">0</span>
+                </span>
+                <span id="final-p2-name">Opponent</span>
+            </div>
+            <div class="trophy-penalty" id="trophy-penalty" style="display: none;">
+                <span class="penalty-icon">🏆</span>
+                <span class="penalty-text">-10 Trophies (Timeout Penalty)</span>
+            </div>
+            <div class="game-over-buttons">
+                <button class="btn btn-primary" id="rematch-btn" onclick="resetAndFindNewMatch()">
+                    <span class="btn-icon">🔄</span>
+                    Find New Match
+                </button>
+                <a href="{% url 'game:home' %}" class="btn btn-secondary">
+                    <span class="btn-icon">🏠</span>
+                    Home
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Game state
+    const playerId = '{{ player_id }}';
+    const playerName = '{{ player_name }}';
+    const gameMode = '{{ mode }}';
+    const elements = {{ elements_json|safe }};
+    const ROUND_TIME_LIMIT = 10; // 10 seconds per round
+    const AI_FALLBACK_TIME = 90; // 90 seconds (1:30) before AI fallback
+    
+    let gameId = null;
+    let isPlayer1 = false;
+    let matchmakingInterval = null;
+    let gameStateInterval = null;
+    let countdownInterval = null;
+    let searchTimerInterval = null;
+    let hasChosen = false;
+    let resultShown = false;
+    let waitingForNextRound = false;
+    let currentRoundStartTime = null;
+    let timerRunning = false;
+    let searchStartTime = null;
+
+    // DOM Elements
+    const matchmakingScreen = document.getElementById('matchmaking-screen');
+    const matchFoundScreen = document.getElementById('match-found-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const elementsGrid = document.getElementById('elements-grid');
+    const resultDisplay = document.getElementById('result-display');
+
+    // Start matchmaking when page loads
+    startMatchmaking();
+
+    // Cancel search button
+    document.getElementById('cancel-search').addEventListener('click', () => {
+        cancelMatchmaking();
+        window.location.href = '{% url "game:home" %}';
+    });
+
+    // Back button warning
+    document.getElementById('back-btn').addEventListener('click', (e) => {
+        if (gameId) {
+            e.preventDefault();
+            if (confirm('Leave the match? This will count as a forfeit.')) {
+                cancelMatchmaking();
+                window.location.href = '{% url "game:home" %}';
+            }
+        } else {
+            cancelMatchmaking();
+        }
+    });
+
+    // Element selection
+    elementsGrid.querySelectorAll('.element-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (hasChosen) return;
+            
+            const choice = btn.dataset.element;
+            makeChoice(choice);
+            
+            // Visual feedback
+            elementsGrid.querySelectorAll('.element-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        });
+    });
+
+    // Next round button
+    document.getElementById('next-round-btn').addEventListener('click', () => {
+        readyForNextRound();
+    });
+
+    function startMatchmaking() {
+        matchmakingScreen.style.display = 'flex';
+        matchFoundScreen.style.display = 'none';
+        gameScreen.style.display = 'none';
+        gameOverScreen.style.display = 'none';
+        
+        // Start search timer
+        searchStartTime = Date.now();
+        startSearchTimer();
+
+        // Start polling for match
+        joinQueue();
+        matchmakingInterval = setInterval(joinQueue, 2000);
+    }
+    
+    function startSearchTimer() {
+        const timerDisplay = document.getElementById('search-timer');
+        const aiCountdown = document.getElementById('ai-countdown');
+        
+        searchTimerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - searchStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            timerDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            // Check if time's up for AI fallback
+            if (elapsed >= AI_FALLBACK_TIME) {
+                // Time's up! Start AI game
+                stopSearchTimer();
+                clearInterval(matchmakingInterval);
+                cancelMatchmaking();
+                startAIGame();
+            }
+        }, 1000);
+    }
+    
+    function stopSearchTimer() {
+        if (searchTimerInterval) {
+            clearInterval(searchTimerInterval);
+            searchTimerInterval = null;
+        }
+    }
+    
+    function startAIGame() {
+        // Random human-like names for AI opponent
+        const aiNames = [
+            'Alex', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Quinn', 'Avery',
+            'Charlie', 'Sam', 'Jamie', 'Drew', 'Skyler', 'Reese', 'Parker', 'Blake',
+            'Max', 'Leo', 'Mia', 'Zoe', 'Kai', 'Finn', 'Luna', 'Nova', 'Ace', 'Rex',
+            'Phoenix', 'Storm', 'River', 'Sage', 'Hunter', 'Raven', 'Jade', 'Blaze',
+            'Shadow', 'Frost', 'Thunder', 'Arrow', 'Hawk', 'Wolf', 'Tiger', 'Viper'
+        ];
+        const randomName = aiNames[Math.floor(Math.random() * aiNames.length)];
+        
+        // Random difficulty (hidden from player)
+        const difficulties = ['normal', 'hard', 'veteran'];
+        const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+        
+        window.location.href = `/play/?mode=${gameMode}&difficulty=${randomDifficulty}&player=${encodeURIComponent(playerName)}&auto_match=1&ai_name=${encodeURIComponent(randomName)}`;
+    }
+
+    async function joinQueue() {
+        try {
+            const response = await fetch('/api/matchmaking/join/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    player_id: playerId,
+                    player_name: playerName,
+                    mode: gameMode
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.status === 'matched') {
+                clearInterval(matchmakingInterval);
+                gameId = data.game_id;
+                showMatchFound();
+            } else if (data.status === 'searching') {
+                document.getElementById('players-online').textContent = data.players_online || 0;
+                document.getElementById('matchmaking-status').textContent = 
+                    data.queue_position > 1 
+                        ? `${data.queue_position} players in queue...` 
+                        : 'Searching for opponent...';
+            }
+        } catch (error) {
+            console.error('Matchmaking error:', error);
+        }
+    }
+
+    function cancelMatchmaking() {
+        clearInterval(matchmakingInterval);
+        clearInterval(gameStateInterval);
+        stopSearchTimer();
+        
+        fetch('/api/matchmaking/leave/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ player_id: playerId })
+        });
+    }
+
+    function showMatchFound() {
+        stopSearchTimer();
+        matchmakingScreen.style.display = 'none';
+        matchFoundScreen.style.display = 'flex';
+
+        // Get game state to know opponent name
+        setTimeout(async () => {
+            await getGameState();
+            
+            // Show match found for 2 seconds then start game
+            setTimeout(() => {
+                matchFoundScreen.style.display = 'none';
+                gameScreen.style.display = 'block';
+                startGamePolling();
+            }, 2000);
+        }, 500);
+    }
+
+    function startGamePolling() {
+        gameStateInterval = setInterval(getGameState, 1000);
+    }
+
+    async function getGameState() {
+        if (!gameId) return;
+
+        try {
+            const response = await fetch('/api/game/state/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    game_id: gameId,
+                    player_id: playerId
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) return;
+
+            isPlayer1 = data.is_player1;
+            updateGameUI(data);
+
+        } catch (error) {
+            console.error('Game state error:', error);
+        }
+    }
+
+    function updateGameUI(state) {
+        // Update names
+        document.getElementById('your-name-display').textContent = state.your_name;
+        document.getElementById('opponent-name-display').textContent = state.opponent_name;
+        document.getElementById('p1-name').textContent = state.your_name;
+        document.getElementById('p2-name').textContent = state.opponent_name;
+        document.getElementById('arena-p1-name').textContent = state.your_name;
+        document.getElementById('arena-p2-name').textContent = state.opponent_name;
+
+        // Update scores
+        document.getElementById('p1-score').textContent = state.your_score;
+        document.getElementById('p2-score').textContent = state.opponent_score;
+        document.getElementById('round-number').textContent = state.current_round;
+
+        // Update status indicators
+        if (state.you_chose) {
+            document.getElementById('p1-status').textContent = 'Ready! ✓';
+            document.getElementById('p1-choice').innerHTML = '<span class="choice-emoji">✓</span>';
+        }
+        if (state.opponent_chose) {
+            document.getElementById('p2-status').textContent = 'Ready! ✓';
+            document.getElementById('p2-choice').innerHTML = '<span class="choice-emoji">✓</span>';
+        }
+
+        // Handle different game states
+        if (state.status === 'playing') {
+            // Reset flags when game transitions back to playing
+            if (resultShown || waitingForNextRound) {
+                resultShown = false;
+                waitingForNextRound = false;
+                hasChosen = false;
+                resetRoundUI();
+            }
+            
+            // Start countdown timer if not already running
+            if (state.round_start_time && !timerRunning && !hasChosen) {
+                currentRoundStartTime = new Date(state.round_start_time);
+                startCountdown();
+            }
+            
+            if (!hasChosen) {
+                document.getElementById('phase-text').textContent = 'Choose your weapon!';
+                document.getElementById('phase-hint').textContent = '';
+                elementsGrid.classList.remove('disabled');
+                document.getElementById('countdown-timer').style.display = 'flex';
+            } else {
+                document.getElementById('phase-text').textContent = 'Waiting for opponent...';
+                document.getElementById('phase-hint').textContent = state.opponent_chose ? 'Both ready!' : '';
+                stopCountdown();
+            }
+        } else if (state.status === 'round_complete' && state.round_result && !resultShown) {
+            resultShown = true;
+            stopCountdown();
+            showRoundResult(state);
+        } else if (state.status === 'finished') {
+            stopCountdown();
+            showGameOver(state);
+        } else if (state.status === 'forfeit') {
+            stopCountdown();
+            showForfeitResult(state);
+        }
+    }
+    
+    function startCountdown() {
+        if (timerRunning) return;
+        timerRunning = true;
+        
+        const timerText = document.getElementById('timer-text');
+        const timerProgress = document.getElementById('timer-progress');
+        const circumference = 2 * Math.PI * 45; // r=45
+        timerProgress.style.strokeDasharray = circumference;
+        
+        countdownInterval = setInterval(() => {
+            const now = new Date();
+            const elapsed = (now - currentRoundStartTime) / 1000;
+            const remaining = Math.max(0, ROUND_TIME_LIMIT - elapsed);
+            
+            // Update timer display
+            timerText.textContent = Math.ceil(remaining);
+            
+            // Update circle progress
+            const progress = remaining / ROUND_TIME_LIMIT;
+            timerProgress.style.strokeDashoffset = circumference * (1 - progress);
+            
+            // Change color based on time
+            if (remaining <= 3) {
+                timerProgress.style.stroke = '#f56565'; // Red
+                document.getElementById('countdown-timer').classList.add('urgent');
+            } else {
+                timerProgress.style.stroke = '#48bb78'; // Green
+                document.getElementById('countdown-timer').classList.remove('urgent');
+            }
+            
+            // Time's up!
+            if (remaining <= 0 && !hasChosen) {
+                stopCountdown();
+                handleTimeout();
+            }
+        }, 100);
+    }
+    
+    function stopCountdown() {
+        timerRunning = false;
+        if (countdownInterval) {
+            clearInterval(countdownInterval);
+            countdownInterval = null;
+        }
+        document.getElementById('countdown-timer').style.display = 'none';
+        document.getElementById('countdown-timer').classList.remove('urgent');
+    }
+    
+    async function handleTimeout() {
+        // Player timed out - forfeit the game
+        try {
+            await fetch('/api/game/forfeit/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    game_id: gameId,
+                    player_id: playerId,
+                    forfeit_player_id: playerId // I timed out
+                })
+            });
+        } catch (error) {
+            console.error('Forfeit error:', error);
+        }
+    }
+    
+    function showForfeitResult(state) {
+        clearInterval(gameStateInterval);
+        clearInterval(countdownInterval);
+        stopCountdown();
+        
+        gameScreen.style.display = 'none';
+        gameOverScreen.style.display = 'flex';
+        
+        const iForfeited = state.forfeit_by === state.your_name;
+        
+        if (iForfeited) {
+            document.getElementById('game-over-title').textContent = '⏰ TIME OUT!';
+            document.getElementById('game-over-title').className = 'game-over-title defeat';
+            document.getElementById('forfeit-message').textContent = 'You didn\'t make a choice in time!';
+            document.getElementById('forfeit-message').style.display = 'block';
+            document.getElementById('trophy-penalty').style.display = 'flex';
+            document.getElementById('final-score-section').style.display = 'none';
+        } else {
+            document.getElementById('game-over-title').textContent = '🏆 VICTORY!';
+            document.getElementById('game-over-title').className = 'game-over-title victory';
+            document.getElementById('forfeit-message').textContent = `${state.forfeit_by} left the game! You win!`;
+            document.getElementById('forfeit-message').style.display = 'block';
+            document.getElementById('trophy-penalty').style.display = 'none';
+            document.getElementById('final-score-section').style.display = 'none';
+        }
+    }
+    
+    function resetRoundUI() {
+        document.getElementById('next-round-btn').style.display = 'none';
+        document.getElementById('next-round-btn').disabled = false;
+        const btnText = document.querySelector('#next-round-btn .btn-text');
+        if (btnText) btnText.textContent = 'Next Round';
+        
+        resultDisplay.style.display = 'none';
+        document.getElementById('p1-choice').innerHTML = '<span class="choice-emoji">❓</span>';
+        document.getElementById('p2-choice').innerHTML = '<span class="choice-emoji">❓</span>';
+        document.getElementById('p1-status').textContent = 'Select your move';
+        document.getElementById('p2-status').textContent = 'Waiting...';
+        elementsGrid.querySelectorAll('.element-btn').forEach(b => b.classList.remove('selected'));
+        elementsGrid.classList.remove('disabled');
+        
+        // Reset timer state for new round
+        timerRunning = false;
+        currentRoundStartTime = null;
+    }
+
+    function showRoundResult(state) {
+        const result = state.round_result;
+        
+        // Show choices
+        const p1Emoji = isPlayer1 ? result.player1_emoji : result.player2_emoji;
+        const p2Emoji = isPlayer1 ? result.player2_emoji : result.player1_emoji;
+        
+        document.getElementById('p1-choice').innerHTML = `<span class="choice-emoji">${p1Emoji}</span>`;
+        document.getElementById('p2-choice').innerHTML = `<span class="choice-emoji">${p2Emoji}</span>`;
+
+        // Determine if we won
+        const weWon = result.round_winner === state.your_name;
+        const isDraw = result.round_winner === null;
+
+        // Show result
+        resultDisplay.style.display = 'block';
+        if (isDraw) {
+            document.getElementById('result-text').textContent = "DRAW!";
+            document.getElementById('result-text').className = 'result-text draw';
+        } else if (weWon) {
+            document.getElementById('result-text').textContent = "YOU WIN THIS ROUND!";
+            document.getElementById('result-text').className = 'result-text win';
+        } else {
+            document.getElementById('result-text').textContent = "YOU LOSE THIS ROUND!";
+            document.getElementById('result-text').className = 'result-text lose';
+        }
+        document.getElementById('result-reason').textContent = result.reason;
+
+        // Show next round button
+        document.getElementById('next-round-btn').style.display = 'inline-flex';
+        elementsGrid.classList.add('disabled');
+        
+        document.getElementById('phase-text').textContent = 'Round Complete';
+        document.getElementById('phase-hint').textContent = 'Click "Next Round" when ready';
+    }
+
+    function showGameOver(state) {
+        clearInterval(gameStateInterval);
+        
+        gameScreen.style.display = 'none';
+        gameOverScreen.style.display = 'flex';
+
+        const weWon = state.winner === state.your_name;
+        
+        document.getElementById('game-over-title').textContent = weWon ? '🏆 VICTORY!' : '😢 DEFEAT';
+        document.getElementById('game-over-title').className = weWon ? 'game-over-title victory' : 'game-over-title defeat';
+        
+        document.getElementById('final-p1-name').textContent = state.your_name;
+        document.getElementById('final-p2-name').textContent = state.opponent_name;
+        document.getElementById('final-p1-score').textContent = state.your_score;
+        document.getElementById('final-p2-score').textContent = state.opponent_score;
+    }
+
+    async function makeChoice(choice) {
+        if (hasChosen) return;
+        hasChosen = true;
+
+        try {
+            const response = await fetch('/api/game/choice/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    game_id: gameId,
+                    player_id: playerId,
+                    choice: choice
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                document.getElementById('p1-status').textContent = 'Ready! ✓';
+                document.getElementById('p1-choice').innerHTML = '<span class="choice-emoji">✓</span>';
+                document.getElementById('phase-text').textContent = 'Waiting for opponent...';
+                elementsGrid.classList.add('disabled');
+            }
+        } catch (error) {
+            console.error('Choice error:', error);
+            hasChosen = false;
+        }
+    }
+
+    async function readyForNextRound() {
+        if (waitingForNextRound) return; // Prevent double-clicks
+        waitingForNextRound = true;
+        
+        const btnText = document.querySelector('#next-round-btn .btn-text');
+        if (btnText) btnText.textContent = 'Waiting...';
+        document.getElementById('next-round-btn').disabled = true;
+        
+        try {
+            await fetch('/api/game/next/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    game_id: gameId,
+                    player_id: playerId
+                })
+            });
+
+            document.getElementById('phase-text').textContent = 'Waiting for opponent...';
+            document.getElementById('phase-hint').textContent = 'Next round starts when both players are ready';
+
+        } catch (error) {
+            console.error('Next round error:', error);
+            waitingForNextRound = false;
+            if (btnText) btnText.textContent = 'Next Round';
+            document.getElementById('next-round-btn').disabled = false;
+        }
+    }
+
+    function resetAndFindNewMatch() {
+        // Clear all intervals
+        clearInterval(gameStateInterval);
+        clearInterval(countdownInterval);
+        clearInterval(matchmakingInterval);
+        stopSearchTimer();
+        
+        // Reset all game state
+        gameId = null;
+        hasChosen = false;
+        resultShown = false;
+        waitingForNextRound = false;
+        timerRunning = false;
+        currentRoundStartTime = null;
+        isPlayer1 = false;
+        searchStartTime = null;
+        
+        // Reset UI elements
+        gameOverScreen.style.display = 'none';
+        gameScreen.style.display = 'none';
+        matchFoundScreen.style.display = 'none';
+        
+        // Reset score display
+        document.getElementById('p1-score').textContent = '0';
+        document.getElementById('p2-score').textContent = '0';
+        document.getElementById('round-number').textContent = '1';
+        
+        // Reset search timer display
+        document.getElementById('search-timer').textContent = '0:00';
+        
+        // Reset forfeit/game over UI
+        document.getElementById('forfeit-message').style.display = 'none';
+        document.getElementById('trophy-penalty').style.display = 'none';
+        document.getElementById('final-score-section').style.display = 'flex';
+        
+        // Reset battle arena
+        document.getElementById('p1-choice').innerHTML = '<span class="choice-emoji">❓</span>';
+        document.getElementById('p2-choice').innerHTML = '<span class="choice-emoji">❓</span>';
+        document.getElementById('p1-status').textContent = 'Select your move';
+        document.getElementById('p2-status').textContent = 'Waiting...';
+        elementsGrid.querySelectorAll('.element-btn').forEach(b => b.classList.remove('selected'));
+        elementsGrid.classList.remove('disabled');
+        
+        // Hide timer
+        document.getElementById('countdown-timer').style.display = 'none';
+        document.getElementById('countdown-timer').classList.remove('urgent');
+        
+        // Start matchmaking again
+        startMatchmaking();
+    }
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        cancelMatchmaking();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,154 @@
+{% extends 'game/base.html' %}
+{% load static %}
+
+{% block title %}RPS Ultimate - Rules{% endblock %}
+
+{% block content %}
+<div class="rules-container">
+    <header class="rules-header">
+        <a href="{% url 'game:home' %}" class="back-btn">← Back</a>
+        <h1>Game Rules</h1>
+    </header>
+
+    <div class="rules-intro">
+        <h2>🎮 How to Play</h2>
+        <p>Choose your element and battle against the AI! Each element has strengths and weaknesses. The game offers three modes with increasing complexity.</p>
+    </div>
+
+    <div class="game-modes">
+        <h2>📋 Game Modes</h2>
+        
+        <div class="mode-section">
+            <h3>🎮 Classic Mode</h3>
+            <p>The traditional Rock, Paper, Scissors with 3 elements.</p>
+            <div class="mode-elements-display">
+                <span>🪨 Rock</span>
+                <span>📄 Paper</span>
+                <span>✂️ Scissors</span>
+            </div>
+        </div>
+
+        <div class="mode-section">
+            <h3>🔥 Extended Mode</h3>
+            <p>Classic mode plus Fire and Water for more strategic options.</p>
+            <div class="mode-elements-display">
+                <span>🪨 Rock</span>
+                <span>📄 Paper</span>
+                <span>✂️ Scissors</span>
+                <span>🔥 Fire</span>
+                <span>💧 Water</span>
+            </div>
+        </div>
+
+        <div class="mode-section">
+            <h3>⚔️ Ultimate Mode</h3>
+            <p>All 10 elements for maximum complexity and strategy!</p>
+            <div class="mode-elements-display">
+                <span>🪨 Rock</span>
+                <span>📄 Paper</span>
+                <span>✂️ Scissors</span>
+                <span>🔥 Fire</span>
+                <span>💧 Water</span>
+                <span>💨 Air</span>
+                <span>🦎 Lizard</span>
+                <span>🔫 Gun</span>
+                <span>⚡ Lightning</span>
+                <span>🛡️ Shield</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="difficulty-section">
+        <h2>🎯 Difficulty Levels</h2>
+        
+        <div class="difficulty-item">
+            <h3>😊 Normal</h3>
+            <p>AI makes completely random choices. Perfect for beginners and casual play.</p>
+            <div class="difficulty-meter easy"></div>
+        </div>
+
+        <div class="difficulty-item">
+            <h3>😈 Hard</h3>
+            <p>AI analyzes your playing patterns with 40% accuracy. It learns your most frequent choices and tries to counter them.</p>
+            <div class="difficulty-meter medium"></div>
+        </div>
+
+        <div class="difficulty-item">
+            <h3>💀 Veteran</h3>
+            <p>AI uses advanced pattern recognition with 70% accuracy. It predicts your next move based on sequences in your play history.</p>
+            <div class="difficulty-meter hard"></div>
+        </div>
+    </div>
+
+    <div class="elements-section">
+        <h2>🔮 All Elements & What They Beat</h2>
+        
+        <div class="elements-grid-rules">
+            {% for key, element in elements.items %}
+            <div class="element-card">
+                <div class="element-header">
+                    <span class="element-emoji-large">{{ element.emoji }}</span>
+                    <h4>{{ key|title }}</h4>
+                </div>
+                <p class="element-beats">{{ element.description }}</p>
+                <div class="beats-list">
+                    <strong>Beats:</strong>
+                    {% for beat in element.beats %}
+                    <span class="beat-item">{{ beat|title }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="relationships-section">
+        <h2>⚡ Quick Reference Chart</h2>
+        <div class="relationship-chart">
+            <table class="rules-table">
+                <thead>
+                    <tr>
+                        <th>Element</th>
+                        <th>Defeats</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>🪨 Rock</td><td>✂️ Scissors, 🦎 Lizard, 🔥 Fire</td></tr>
+                    <tr><td>📄 Paper</td><td>🪨 Rock, 💨 Air, 💧 Water</td></tr>
+                    <tr><td>✂️ Scissors</td><td>📄 Paper, 💨 Air, 🦎 Lizard</td></tr>
+                    <tr><td>🔥 Fire</td><td>📄 Paper, ✂️ Scissors, 💨 Air, 🦎 Lizard</td></tr>
+                    <tr><td>💧 Water</td><td>🔥 Fire, 🪨 Rock, 🦎 Lizard, 🔫 Gun</td></tr>
+                    <tr><td>💨 Air</td><td>🔥 Fire, 🪨 Rock, 💧 Water</td></tr>
+                    <tr><td>🦎 Lizard</td><td>📄 Paper, 💨 Air, ⚡ Lightning</td></tr>
+                    <tr><td>🔫 Gun</td><td>🪨 Rock, ✂️ Scissors, 🔥 Fire, 🦎 Lizard, 💨 Air, ⚡ Lightning</td></tr>
+                    <tr><td>⚡ Lightning</td><td>💧 Water, ✂️ Scissors, 🔫 Gun, 🔥 Fire</td></tr>
+                    <tr><td>🛡️ Shield</td><td>🔫 Gun, 🪨 Rock, ✂️ Scissors, ⚡ Lightning</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="keyboard-shortcuts">
+        <h2>⌨️ Keyboard Shortcuts</h2>
+        <div class="shortcuts-grid">
+            <div class="shortcut"><kbd>R</kbd> Rock</div>
+            <div class="shortcut"><kbd>P</kbd> Paper</div>
+            <div class="shortcut"><kbd>S</kbd> Scissors</div>
+            <div class="shortcut"><kbd>F</kbd> Fire</div>
+            <div class="shortcut"><kbd>W</kbd> Water</div>
+            <div class="shortcut"><kbd>A</kbd> Air</div>
+            <div class="shortcut"><kbd>L</kbd> Lizard</div>
+            <div class="shortcut"><kbd>G</kbd> Gun</div>
+            <div class="shortcut"><kbd>E</kbd> Lightning</div>
+            <div class="shortcut"><kbd>D</kbd> Shield</div>
+        </div>
+    </div>
+
+    <div class="action-buttons">
+        <a href="{% url 'game:home' %}" class="btn btn-primary btn-large">
+            <span class="btn-icon">🎮</span>
+            Play Now
+        </a>
+    </div>
+</div>
+{% endblock %}

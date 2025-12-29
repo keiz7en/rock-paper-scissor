@@ -1,0 +1,137 @@
+{% extends 'game/base.html' %}
+{% load static %}
+
+{% block title %}RPS Ultimate - Leaderboard{% endblock %}
+
+{% block content %}
+<div class="leaderboard-container">
+    <header class="leaderboard-header">
+        <a href="{% url 'game:home' %}" class="back-btn">← Back</a>
+        <h1>🏆 Leaderboard</h1>
+        <div class="leaderboard-stats">
+            <span class="stat">{{ total_players }} Players</span>
+            <span class="stat">{{ total_games }} Games Played</span>
+        </div>
+    </header>
+
+    <div class="leaderboard-content">
+        {% if players %}
+        <!-- Top 3 Podium -->
+        <div class="podium-section">
+            <h2>🏅 Champions</h2>
+            <div class="podium">
+                {% if players|length >= 2 %}
+                <div class="podium-place second">
+                    <div class="podium-avatar">🥈</div>
+                    <div class="podium-name">{{ players.1.name }}</div>
+                    <div class="podium-score">{{ players.1.score }} pts</div>
+                    <div class="podium-block">2</div>
+                </div>
+                {% endif %}
+                
+                {% if players|length >= 1 %}
+                <div class="podium-place first">
+                    <div class="podium-avatar">🥇</div>
+                    <div class="podium-name">{{ players.0.name }}</div>
+                    <div class="podium-score">{{ players.0.score }} pts</div>
+                    <div class="podium-block">1</div>
+                </div>
+                {% endif %}
+                
+                {% if players|length >= 3 %}
+                <div class="podium-place third">
+                    <div class="podium-avatar">🥉</div>
+                    <div class="podium-name">{{ players.2.name }}</div>
+                    <div class="podium-score">{{ players.2.score }} pts</div>
+                    <div class="podium-block">3</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Full Leaderboard Table -->
+        <div class="leaderboard-table-section">
+            <h2>📊 All Rankings</h2>
+            <div class="table-container">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Player</th>
+                            <th>Score</th>
+                            <th>Wins</th>
+                            <th>Losses</th>
+                            <th>Draws</th>
+                            <th>Win Rate</th>
+                            <th>Best Streak</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for player in players %}
+                        <tr class="{% if forloop.counter <= 3 %}top-three{% endif %}">
+                            <td class="rank-cell">
+                                {% if forloop.counter == 1 %}
+                                    <span class="rank-medal">🥇</span>
+                                {% elif forloop.counter == 2 %}
+                                    <span class="rank-medal">🥈</span>
+                                {% elif forloop.counter == 3 %}
+                                    <span class="rank-medal">🥉</span>
+                                {% else %}
+                                    <span class="rank-number">#{{ forloop.counter }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="player-cell">
+                                <span class="player-name">{{ player.name }}</span>
+                            </td>
+                            <td class="score-cell">
+                                <span class="score-value">{{ player.score }}</span>
+                            </td>
+                            <td class="wins-cell">{{ player.total_wins }}</td>
+                            <td class="losses-cell">{{ player.total_losses }}</td>
+                            <td class="draws-cell">{{ player.total_draws }}</td>
+                            <td class="winrate-cell">
+                                <span class="winrate-bar">
+                                    <span class="winrate-fill" style="width: {{ player.win_rate }}%"></span>
+                                </span>
+                                <span class="winrate-text">{{ player.win_rate }}%</span>
+                            </td>
+                            <td class="streak-cell">
+                                {% if player.best_streak > 0 %}
+                                    🔥 {{ player.best_streak }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-leaderboard">
+            <div class="empty-icon">🎮</div>
+            <h3>No players yet!</h3>
+            <p>Be the first to play and get on the leaderboard!</p>
+            <a href="{% url 'game:home' %}" class="btn btn-primary">Start Playing</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="leaderboard-footer">
+        <div class="scoring-info">
+            <h4>📈 Scoring System</h4>
+            <ul>
+                <li><strong>+10 points</strong> per win</li>
+                <li><strong>+5 bonus</strong> for Veteran wins</li>
+                <li><strong>+3 bonus</strong> for Hard wins</li>
+                <li><strong>-2 points</strong> per loss</li>
+            </ul>
+        </div>
+        <a href="{% url 'game:home' %}" class="btn btn-primary btn-large">
+            <span class="btn-icon">🎯</span>
+            Play Now
+        </a>
+    </div>
+</div>
+{% endblock %}

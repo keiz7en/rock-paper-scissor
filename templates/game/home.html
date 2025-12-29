@@ -1,0 +1,227 @@
+{% extends 'game/base.html' %}
+{% load static %}
+
+{% block title %}RPS Ultimate - Home{% endblock %}
+
+{% block content %}
+<div class="home-container">
+    <div class="hero">
+        <h1 class="title">
+            <span class="emoji-rock">🪨</span>
+            <span class="emoji-paper">📄</span>
+            <span class="emoji-scissors">✂️</span>
+        </h1>
+        <h2 class="subtitle">Rock Paper Scissors</h2>
+        <h3 class="subtitle-small">Ultimate Edition</h3>
+        <p class="tagline">Classic game with extended elements & multiple game modes</p>
+    </div>
+
+    <!-- Game Type Selection -->
+    <div class="game-type-selection">
+        <h3>🎯 Select Game Type</h3>
+        <div class="game-type-cards">
+            <div class="game-type-card selected" data-type="ai">
+                <div class="game-type-icon">🤖</div>
+                <h4>vs AI</h4>
+                <p>Battle against smart AI</p>
+                <span class="rank-badge-info">🏆 Rankings Enabled</span>
+            </div>
+            <div class="game-type-card" data-type="pvp">
+                <div class="game-type-icon">🌐</div>
+                <h4>vs Player</h4>
+                <p>Find opponent online</p>
+                <span class="rank-badge-info no-rank">🔍 Auto Matchmaking</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Player Name Input (for both modes now) -->
+    <div class="player-section" id="player-section">
+        <h3 id="player-section-title">🎮 Enter Your Name (for Rankings)</h3>
+        <div class="player-input-container">
+            <input type="text" id="player-name" placeholder="Your nickname..." maxlength="20" class="player-input">
+            <span class="input-hint" id="player-hint">Leave empty to play as guest (no ranking)</span>
+        </div>
+    </div>
+
+    <div class="mode-selection">
+        <h3>Select Game Mode</h3>
+        <div class="mode-cards">
+            <div class="mode-card" data-mode="classic">
+                <div class="mode-icon">🎮</div>
+                <h4>Classic</h4>
+                <p>Rock, Paper, Scissors</p>
+                <div class="mode-elements">🪨 📄 ✂️</div>
+            </div>
+            <div class="mode-card" data-mode="extended">
+                <div class="mode-icon">🔥</div>
+                <h4>Extended</h4>
+                <p>Add Fire & Water</p>
+                <div class="mode-elements">🪨 📄 ✂️ 🔥 💧</div>
+            </div>
+            <div class="mode-card" data-mode="full">
+                <div class="mode-icon">⚔️</div>
+                <h4>Ultimate</h4>
+                <p>All 10 Elements</p>
+                <div class="mode-elements">🪨 📄 ✂️ 🔥 💧 💨 🦎 🔫 ⚡ 🛡️</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Difficulty Selection (only for AI mode) -->
+    <div class="difficulty-selection" id="difficulty-section">
+        <h3>Select AI Difficulty</h3>
+        <div class="difficulty-cards">
+            <div class="difficulty-card selected" data-difficulty="normal">
+                <div class="difficulty-icon">😊</div>
+                <h4>Normal</h4>
+                <p>AI makes random choices</p>
+                <div class="difficulty-bar">
+                    <span class="bar-fill" style="width: 33%"></span>
+                </div>
+            </div>
+            <div class="difficulty-card" data-difficulty="hard">
+                <div class="difficulty-icon">😈</div>
+                <h4>Hard</h4>
+                <p>AI learns your patterns</p>
+                <div class="difficulty-bar">
+                    <span class="bar-fill" style="width: 66%"></span>
+                </div>
+            </div>
+            <div class="difficulty-card" data-difficulty="veteran">
+                <div class="difficulty-icon">💀</div>
+                <h4>Veteran</h4>
+                <p>AI predicts your moves</p>
+                <div class="difficulty-bar">
+                    <span class="bar-fill" style="width: 100%"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Players Preview -->
+    {% if top_players %}
+    <div class="leaderboard-preview">
+        <h3>🏆 Top Players</h3>
+        <div class="top-players-list">
+            {% for player in top_players %}
+            <div class="top-player-item">
+                <span class="rank-badge rank-{{ forloop.counter }}">
+                    {% if forloop.counter == 1 %}🥇{% elif forloop.counter == 2 %}🥈{% elif forloop.counter == 3 %}🥉{% else %}#{{ forloop.counter }}{% endif %}
+                </span>
+                <span class="player-name">{{ player.name }}</span>
+                <span class="player-score">{{ player.score }} pts</span>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="{% url 'game:leaderboard' %}" class="view-all-link">View Full Leaderboard →</a>
+    </div>
+    {% endif %}
+
+    <div class="action-buttons">
+        <button id="start-game" class="btn btn-primary btn-large">
+            <span class="btn-icon">🎯</span>
+            Start Game
+        </button>
+        <a href="{% url 'game:leaderboard' %}" class="btn btn-secondary">
+            <span class="btn-icon">🏆</span>
+            Leaderboard
+        </a>
+        <a href="{% url 'game:rules' %}" class="btn btn-secondary">
+            <span class="btn-icon">📖</span>
+            View Rules
+        </a>
+    </div>
+</div>
+
+<script>
+    let selectedMode = 'classic';
+    let selectedDifficulty = 'normal';
+    let selectedGameType = 'ai';
+    const gameModes = ['classic', 'extended', 'full'];
+
+    // Load saved player name from localStorage
+    const savedName = localStorage.getItem('rps_player_name');
+    if (savedName) {
+        document.getElementById('player-name').value = savedName;
+    }
+
+    // Game type selection
+    document.querySelectorAll('.game-type-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.game-type-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedGameType = card.dataset.type;
+            
+            // Toggle sections based on game type
+            const difficultySection = document.getElementById('difficulty-section');
+            const modeSection = document.querySelector('.mode-selection');
+            const playerTitle = document.getElementById('player-section-title');
+            const playerHint = document.getElementById('player-hint');
+            
+            if (selectedGameType === 'ai') {
+                difficultySection.style.display = 'block';
+                modeSection.style.display = 'block';
+                playerTitle.textContent = '🎮 Enter Your Name (for Rankings)';
+                playerHint.textContent = 'Leave empty to play as guest (no ranking)';
+            } else {
+                difficultySection.style.display = 'none';
+                modeSection.style.display = 'none';
+                playerTitle.textContent = '🎮 Enter Your Name';
+                playerHint.textContent = 'Mode will be randomly selected (Battle Royale style!)';
+            }
+        });
+    });
+
+    // Mode selection
+    document.querySelectorAll('.mode-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedMode = card.dataset.mode;
+        });
+    });
+
+    // Difficulty selection
+    document.querySelectorAll('.difficulty-card').forEach(card => {
+        card.addEventListener('click', () => {
+            document.querySelectorAll('.difficulty-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedDifficulty = card.dataset.difficulty;
+        });
+    });
+
+    // Start game
+    document.getElementById('start-game').addEventListener('click', () => {
+        const playerName = document.getElementById('player-name').value.trim() || 'Player';
+        
+        // Save player name to localStorage
+        if (playerName && playerName !== 'Player') {
+            localStorage.setItem('rps_player_name', playerName);
+        }
+        
+        if (selectedGameType === 'ai') {
+            let url = `/play/?mode=${selectedMode}&difficulty=${selectedDifficulty}`;
+            if (playerName && playerName !== 'Player') {
+                url += `&player=${encodeURIComponent(playerName)}`;
+            }
+            window.location.href = url;
+        } else {
+            // Random mode for PvP (Battle Royale style)
+            const randomMode = gameModes[Math.floor(Math.random() * gameModes.length)];
+            let url = `/pvp/?mode=${randomMode}&player=${encodeURIComponent(playerName)}`;
+            window.location.href = url;
+        }
+    });
+
+    // Enter key on player name input
+    document.getElementById('player-name').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('start-game').click();
+        }
+    });
+
+    // Select first mode card by default
+    document.querySelector('.mode-card').classList.add('selected');
+</script>
+{% endblock %}
