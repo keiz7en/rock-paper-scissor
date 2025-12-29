@@ -6,6 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 import json
 import uuid
+import random
 
 from .game_logic import (
     ELEMENTS, 
@@ -56,21 +57,19 @@ def game_view(request):
 
 def pvp_view(request):
     """Render the Player vs Player online matchmaking page"""
-    mode = request.GET.get('mode', 'classic')
     player_name = request.GET.get('player', 'Player')
     
     # Generate unique player ID for this session
     player_id = str(uuid.uuid4())
     
-    elements = get_elements_for_mode(mode)
-    element_data = {key: ELEMENTS[key] for key in elements}
+    # Include ALL elements - actual mode will be randomly selected at match time
+    all_elements = ELEMENTS
     
     context = {
-        'mode': mode,
         'player_name': player_name,
         'player_id': player_id,
-        'elements': element_data,
-        'elements_json': json.dumps(element_data),
+        'elements': all_elements,
+        'elements_json': json.dumps(all_elements),
     }
     return render(request, 'game/pvp.html', context)
 
@@ -111,19 +110,19 @@ def join_matchmaking(request):
                 status='searching'
             )
         
-        # Try to find a match (another player searching in the same mode)
+        # Try to find a match (any player searching, regardless of mode)
         potential_match = MatchmakingQueue.objects.filter(
-            mode=mode,
             status='searching'
         ).exclude(player_id=player_id).order_by('created_at').first()
         
         if potential_match:
-            # Create a game
+            # Create a game with a RANDOM mode
             game_id = str(uuid.uuid4())
+            random_mode = random.choice(['classic', 'extended', 'full'])
             
             OnlineGame.objects.create(
                 game_id=game_id,
-                mode=mode,
+                mode=random_mode,
                 player1_id=potential_match.player_id,
                 player1_name=potential_match.player_name,
                 player2_id=player_id,

@@ -9,7 +9,7 @@
         <a href="{% url 'game:home' %}" class="back-btn" id="back-btn">← Back</a>
         <h1>🌐 Online Battle</h1>
         <div class="game-info">
-            <span class="mode-badge">{{ mode|title }}</span>
+            <span class="mode-badge" id="mode-badge">Random</span>
             <span class="pvp-badge">🔍 Matchmaking</span>
         </div>
     </header>
@@ -37,8 +37,8 @@
             </div>
             <div class="matchmaking-mode-info">
                 <span class="mode-label">🎲 Mode:</span>
-                <span class="mode-value">{{ mode|title }}</span>
-                <span class="random-badge">Random</span>
+                <span class="mode-value">Random</span>
+                <span class="random-badge">Surprise!</span>
             </div>
             <div class="online-count" id="online-count">
                 <span class="online-dot"></span>
@@ -192,11 +192,18 @@
     // Game state
     const playerId = '{{ player_id }}';
     const playerName = '{{ player_name }}';
-    const gameMode = '{{ mode }}';
-    const elements = {{ elements_json|safe }};
+    const allElements = {{ elements_json|safe }};
     const ROUND_TIME_LIMIT = 10; // 10 seconds per round
     const AI_FALLBACK_TIME = 90; // 90 seconds (1:30) before AI fallback
     
+    // Mode-specific elements
+    const modeElements = {
+        'classic': ['rock', 'paper', 'scissors'],
+        'extended': ['rock', 'paper', 'scissors', 'lizard', 'spock', 'fire', 'water', 'air', 'earth', 'lightning', 'ice', 'metal', 'shadow', 'light', 'poison'],
+        'full': Object.keys(allElements)
+    };
+    
+    let gameMode = null; // Will be set when matched
     let gameId = null;
     let isPlayer1 = false;
     let matchmakingInterval = null;
@@ -317,7 +324,11 @@
         const difficulties = ['normal', 'hard', 'veteran'];
         const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
         
-        window.location.href = `/play/?mode=${gameMode}&difficulty=${randomDifficulty}&player=${encodeURIComponent(playerName)}&auto_match=1&ai_name=${encodeURIComponent(randomName)}`;
+        // Random mode for AI game too
+        const modes = ['classic', 'extended', 'full'];
+        const randomMode = modes[Math.floor(Math.random() * modes.length)];
+        
+        window.location.href = `/play/?mode=${randomMode}&difficulty=${randomDifficulty}&player=${encodeURIComponent(playerName)}&auto_match=1&ai_name=${encodeURIComponent(randomName)}`;
     }
 
     async function joinQueue() {
@@ -327,8 +338,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     player_id: playerId,
-                    player_name: playerName,
-                    mode: gameMode
+                    player_name: playerName
                 })
             });
 
@@ -367,7 +377,7 @@
         matchmakingScreen.style.display = 'none';
         matchFoundScreen.style.display = 'flex';
 
-        // Get game state to know opponent name
+        // Get game state to know opponent name and the RANDOM mode
         setTimeout(async () => {
             await getGameState();
             
@@ -375,9 +385,40 @@
             setTimeout(() => {
                 matchFoundScreen.style.display = 'none';
                 gameScreen.style.display = 'block';
+                updateElementsGrid(); // Update elements grid based on actual mode
                 startGamePolling();
             }, 2000);
         }, 500);
+    }
+    
+    function updateElementsGrid() {
+        // Get available elements for this mode
+        const availableElements = modeElements[gameMode] || Object.keys(allElements);
+        
+        // Update header mode badge
+        document.getElementById('mode-badge').textContent = gameMode ? gameMode.charAt(0).toUpperCase() + gameMode.slice(1) : 'Random';
+        
+        // Rebuild elements grid with only available elements
+        elementsGrid.innerHTML = '';
+        availableElements.forEach(key => {
+            if (allElements[key]) {
+                const btn = document.createElement('button');
+                btn.className = 'element-btn';
+                btn.dataset.element = key;
+                btn.title = allElements[key].description || '';
+                btn.innerHTML = `
+                    <span class="element-emoji">${allElements[key].emoji}</span>
+                    <span class="element-name">${key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                `;
+                btn.addEventListener('click', () => {
+                    if (hasChosen) return;
+                    makeChoice(key);
+                    elementsGrid.querySelectorAll('.element-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                });
+                elementsGrid.appendChild(btn);
+            }
+        });
     }
 
     function startGamePolling() {
@@ -401,6 +442,15 @@
             if (data.error) return;
 
             isPlayer1 = data.is_player1;
+            
+            // Get the randomly assigned mode from server
+            if (data.mode && !gameMode) {
+                gameMode = data.mode;
+                // Update mode display in match found screen
+                document.querySelector('.match-found-container .starting-text').textContent = 
+                    `Mode: ${gameMode.charAt(0).toUpperCase() + gameMode.slice(1)} • Match starting...`;
+            }
+            
             updateGameUI(data);
 
         } catch (error) {
@@ -702,6 +752,7 @@
         
         // Reset all game state
         gameId = null;
+        gameMode = null; // Reset mode for next random match
         hasChosen = false;
         resultShown = false;
         waitingForNextRound = false;
@@ -714,6 +765,9 @@
         gameOverScreen.style.display = 'none';
         gameScreen.style.display = 'none';
         matchFoundScreen.style.display = 'none';
+        
+        // Reset mode badge
+        document.getElementById('mode-badge').textContent = 'Random';
         
         // Reset score display
         document.getElementById('p1-score').textContent = '0';
